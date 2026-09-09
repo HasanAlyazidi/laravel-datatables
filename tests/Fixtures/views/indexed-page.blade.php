@@ -1,0 +1,1 @@
+<x-datatable table="IndexedDataTable" />
