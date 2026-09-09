@@ -36,6 +36,8 @@ class RenderingTest extends DatabaseTestCase
 
     public function test_the_component_renders_a_server_table()
     {
+        $this->skipUnlessComponentTags();
+
         $response = $this->get('page/users-page');
 
         $response->assertStatus(200);
@@ -43,7 +45,11 @@ class RenderingTest extends DatabaseTestCase
 
         $html = $response->getContent();
 
-        $this->assertMatchesRegularExpression('/id="dt-userstestdatatable[^"]*"/', $html);
+        // assertMatchesRegularExpression needs PHPUnit 9.1; stay 8.5-safe.
+        $this->assertTrue(
+            (bool) preg_match('/id="dt-userstestdatatable[^"]*"/', $html),
+            'No auto-generated table id found.'
+        );
 
         $config = $this->configFrom($html);
 
@@ -63,6 +69,8 @@ class RenderingTest extends DatabaseTestCase
 
     public function test_a_full_class_name_also_resolves()
     {
+        $this->skipUnlessComponentTags();
+
         $this->get('page/users-page-full-class')
             ->assertStatus(200)
             ->assertSee('datatable-server', false);
@@ -70,6 +78,8 @@ class RenderingTest extends DatabaseTestCase
 
     public function test_two_tables_on_one_page_get_distinct_ids()
     {
+        $this->skipUnlessComponentTags();
+
         $html = $this->get('page/two-tables-page')->getContent();
 
         preg_match_all('/<table id="(dt-userstestdatatable[^"]*)"/', $html, $matches);
@@ -81,6 +91,8 @@ class RenderingTest extends DatabaseTestCase
 
     public function test_the_theme_prop_switches_the_markup()
     {
+        $this->skipUnlessComponentTags();
+
         $response = $this->get('page/theme-page');
 
         // Bootstrap 3 export dropdown: btn-default, caret, data-toggle.
@@ -91,6 +103,8 @@ class RenderingTest extends DatabaseTestCase
 
     public function test_export_false_hides_the_built_in_dropdown()
     {
+        $this->skipUnlessComponentTags();
+
         $this->get('page/no-export-page')
             ->assertStatus(200)
             ->assertDontSee('data-datatable-export-group', false);
@@ -98,6 +112,8 @@ class RenderingTest extends DatabaseTestCase
 
     public function test_the_standalone_export_component_renders_with_a_target()
     {
+        $this->skipUnlessComponentTags();
+
         $response = $this->get('page/export-tag-page');
 
         $response->assertSee('data-datatable-export-group', false);
@@ -107,6 +123,8 @@ class RenderingTest extends DatabaseTestCase
 
     public function test_the_standalone_export_component_renders_nothing_without_exporters()
     {
+        $this->skipUnlessComponentTags();
+
         config(['datatables.exports.enabled' => false]);
 
         $this->get('page/export-tag-page')
@@ -130,6 +148,8 @@ class RenderingTest extends DatabaseTestCase
 
     public function test_index_columns_are_marked_in_the_envelope()
     {
+        $this->skipUnlessComponentTags();
+
         $config = $this->configFrom($this->get('page/indexed-page')->getContent());
 
         $this->assertSame('_index', $config['columns'][0]['data']);
