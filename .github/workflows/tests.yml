@@ -24,13 +24,19 @@ jobs:
     name: PHP ${{ matrix.php }} - Laravel ${{ matrix.laravel }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
           extensions: mbstring, pdo_sqlite
           coverage: none
+
+      # The matrix installs old Laravel releases ON PURPOSE; recent Composer
+      # would refuse them over their known security advisories. This only
+      # changes the ephemeral CI checkout, never the shipped composer.json.
+      - name: Allow historical framework versions
+        run: composer config policy.advisories.block false
 
       - name: Pin the matrix versions
         run: >
@@ -50,7 +56,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: shivammathur/setup-php@v2
         with:
