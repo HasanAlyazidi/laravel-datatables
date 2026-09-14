@@ -31,6 +31,55 @@ class DataTablesServiceProvider extends ServiceProvider
         });
     }
 
+    /**
+     * Deep-merge, unlike the framework's shallow mergeConfigFrom, so a
+     * project's config only needs to carry the keys it changes and the rest
+     * fall through to the package defaults (e.g. change one PDF colour
+     * without re-declaring every exporter). Signature matches the parent.
+     *
+     * @param  string  $path
+     * @param  string  $key
+     */
+    protected function mergeConfigFrom($path, $key)
+    {
+        $defaults = require $path;
+        $app = $this->app['config']->get($key, []);
+
+        $this->app['config']->set($key, $this->mergeConfigRecursive($defaults, $app));
+    }
+
+    /**
+     * Associative arrays merge key-by-key; lists (e.g. the exporters list)
+     * and scalars from the app replace the default outright — so narrowing a
+     * list never appends to it, and setting a value to false really disables
+     * it. Used by mergeConfigFrom above.
+     */
+    private function mergeConfigRecursive(array $defaults, array $overrides): array
+    {
+        foreach ($overrides as $key => $value) {
+            $recurse = is_array($value)
+                && isset($defaults[$key])
+                && is_array($defaults[$key])
+                && $this->isAssoc($value)
+                && $this->isAssoc($defaults[$key]);
+
+            if ($recurse) {
+                $defaults[$key] = $this->mergeConfigRecursive($defaults[$key], $value);
+
+                continue;
+            }
+
+            $defaults[$key] = $value;
+        }
+
+        return $defaults;
+    }
+
+    private function isAssoc(array $array): bool
+    {
+        return $array !== [] && array_keys($array) !== range(0, count($array) - 1);
+    }
+
     public function boot(): void
     {
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'datatables');
@@ -78,11 +127,12 @@ class DataTablesServiceProvider extends ServiceProvider
         });
 
         // An empty expression must compile to [] — interpolated raw it
-        // would be a PHP syntax error in the compiled view.
+        // would be a PHP syntax error in the compiled view. $__env is passed
+        // so the page's @section('dataTable.*') overrides can be read.
         Blade::directive('dataTablesScripts', function ($expression) {
             $expression = trim((string) $expression) === '' ? '[]' : $expression;
 
-            return "<?php echo \HasanAlyazidi\DataTables\Assets::scripts({$expression}); ?>";
+            return "<?php echo \HasanAlyazidi\DataTables\Assets::scripts({$expression}, \$__env); ?>";
         });
     }
 

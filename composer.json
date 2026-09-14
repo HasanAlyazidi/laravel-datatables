@@ -1,6 +1,6 @@
 {
     "name": "hasanalyazidi/laravel-datatables",
-    "description": "Lightweight server-side engine for jQuery DataTables: one PHP class, one route line, one Blade tag — with Excel, CSV and PDF (Arabic/RTL-capable) exports.",
+    "description": "Server-side and client-side jQuery DataTables for Laravel: one PHP class, one route line, one Blade tag — bundled responsive front end, a delete-row flow, and Excel, CSV and PDF (Arabic/RTL) exports.",
     "type": "library",
     "license": "MIT",
     "homepage": "https://github.com/HasanAlyazidi/laravel-datatables",
@@ -9,6 +9,8 @@
         "laravel",
         "server-side",
         "jquery",
+        "responsive",
+        "bootstrap",
         "export",
         "excel",
         "pdf",

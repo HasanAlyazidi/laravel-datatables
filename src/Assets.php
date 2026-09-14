@@ -2,15 +2,18 @@
 
 namespace HasanAlyazidi\DataTables;
 
+use Illuminate\Contracts\View\Factory;
+
 /**
  * Emits the <link>/<script> tags behind the dataTablesStyles and
- * dataTablesScripts Blade directives, matched to the configured theme.
+ * dataTablesScripts Blade directives, matched to the configured theme, and
+ * builds the window.laravelDataTables config the client script reads.
  *
  * Sources: 'local' (default) serves the bundled distribution — published
  * copies first, else the package routes; 'cdn' pins cdn.datatables.net
  * with integrity hashes; enabled=false emits only the package's script.
- * VERSION drives both the CDN core URLs and the i18n URL, so the two can
- * never drift apart.
+ * VERSION drives the core + i18n URLs; RESPONSIVE_VERSION the Responsive
+ * extension URLs, so neither can drift from the bundled files.
  */
 final class Assets
 {
@@ -18,6 +21,11 @@ final class Assets
      * The DataTables release this package bundles and pins on the CDN.
      */
     const VERSION = '2.3.6';
+
+    /**
+     * The Responsive extension release (versioned separately from core).
+     */
+    const RESPONSIVE_VERSION = '3.0.4';
 
     /**
      * Public file name => [path inside the bundle, mime type].
@@ -30,9 +38,16 @@ final class Assets
         'dataTables.bootstrap5.min.js' => ['js/dataTables.bootstrap5.min.js', 'application/javascript'],
         'dataTables.bootstrap4.min.js' => ['js/dataTables.bootstrap4.min.js', 'application/javascript'],
         'dataTables.bootstrap.min.js' => ['js/dataTables.bootstrap.min.js', 'application/javascript'],
+        'dataTables.responsive.min.js' => ['js/dataTables.responsive.min.js', 'application/javascript'],
+        'responsive.bootstrap5.min.js' => ['js/responsive.bootstrap5.min.js', 'application/javascript'],
+        'responsive.bootstrap4.min.js' => ['js/responsive.bootstrap4.min.js', 'application/javascript'],
+        'responsive.bootstrap.min.js' => ['js/responsive.bootstrap.min.js', 'application/javascript'],
         'dataTables.bootstrap5.min.css' => ['css/dataTables.bootstrap5.min.css', 'text/css'],
         'dataTables.bootstrap4.min.css' => ['css/dataTables.bootstrap4.min.css', 'text/css'],
         'dataTables.bootstrap.min.css' => ['css/dataTables.bootstrap.min.css', 'text/css'],
+        'responsive.bootstrap5.min.css' => ['css/responsive.bootstrap5.min.css', 'text/css'],
+        'responsive.bootstrap4.min.css' => ['css/responsive.bootstrap4.min.css', 'text/css'],
+        'responsive.bootstrap.min.css' => ['css/responsive.bootstrap.min.css', 'text/css'],
         'lang-ar.json' => ['lang/ar.json', 'application/json'],
         'lang-fr.json' => ['lang/fr.json', 'application/json'],
         'lang-it.json' => ['lang/it.json', 'application/json'],
@@ -42,7 +57,7 @@ final class Assets
     /**
      * Theme => suffix in the DataTables integration file names. Bootstrap 3
      * predates versioned names, so its files are the legacy unversioned
-     * dataTables.bootstrap.* — that quirk lives here only.
+     * dataTables.bootstrap.* / responsive.bootstrap.* — that quirk lives here.
      *
      * @var array
      */
@@ -67,9 +82,9 @@ final class Assets
 
     /**
      * sha384 integrity hashes for cdn mode, one per CDN file name —
-     * computed from the VERSION files on cdn.datatables.net. A file without
+     * computed from the pinned files on cdn.datatables.net. A file without
      * an entry is emitted without an integrity attribute. Recompute when
-     * bumping VERSION: openssl dgst -sha384 -binary FILE | openssl base64 -A
+     * bumping a version: openssl dgst -sha384 -binary FILE | openssl base64 -A
      *
      * @var array
      */
@@ -78,14 +93,21 @@ final class Assets
         'dataTables.bootstrap5.min.js' => 'sha384-3BApNGXgbm9rg2kjIbaEVprAGb2B0n9QyLjBrH090WdkzZ3IiUv8RZoTh5uP8oWH',
         'dataTables.bootstrap4.min.js' => 'sha384-mQYCF2gxqKl3YTl+txVPKMyrgj14Qf/YxyCAcI+r+CylaK4hucffh2hza6Dtap6y',
         'dataTables.bootstrap.min.js' => 'sha384-dWxQaWIW01kOo1Nq6GAXs3j8feQUr2oRJqX98pfW0MULdhw/Jc03disinzgnGUkh',
+        'dataTables.responsive.min.js' => 'sha384-A6In5tKqlvPZKDpH+ei4A3A4TZrEsyvvN2Fe+oCB1IaQfGD5HNqDIxwjztNKSGDd',
+        'responsive.bootstrap5.min.js' => 'sha384-VdUZen/UKzp4O+wnInvMeDymYoESBoFxn8hXwJcu+3QTKXC0Ewzr1Wj+17lPUrtn',
+        'responsive.bootstrap4.min.js' => 'sha384-Zm+rJWkaDoGi7tTVmpYGS6kANTuroh/OG7LjV9cyZJS1JArRzXhHo+V4Jvad+nu8',
+        'responsive.bootstrap.min.js' => 'sha384-zdWF0aSog7mYRhBpAa+vs6bKOSUn/CCxLfXklfEwemdv1pjzbANdtt/Nq7t6uwk1',
         'dataTables.bootstrap5.min.css' => 'sha384-q6bAgUAsga3oT16XWJ1toXdKcHmBp45jM5roe3RCQ6dET9xGL89Qmpx4tJAI2pm2',
         'dataTables.bootstrap4.min.css' => 'sha384-eKtLViuW31F9jDrqZyyVG1J2hNiy+5phgt+BEe6F03Jqnfppy+wRKLmtLpWdiMaw',
         'dataTables.bootstrap.min.css' => 'sha384-DcxmRBO1osxpJCs+i/4Jrhesl67w4TvKK2yW6ioINL8kEoMy3pxLxebnx6a5rFh+',
+        'responsive.bootstrap5.min.css' => 'sha384-seyUnB//1QOFEqox9uI7YTLBgz9jBwFRqZvsEPFrTw6NAsFEo70nhBWsQfODqiYA',
+        'responsive.bootstrap4.min.css' => 'sha384-ABjKU7bmH4PbanV9tKU7t2iQzGKeS6dSDeRpnHXGqo5mxNVuHbUDctXjQkuEn2BW',
+        'responsive.bootstrap.min.css' => 'sha384-ABjKU7bmH4PbanV9tKU7t2iQzGKeS6dSDeRpnHXGqo5mxNVuHbUDctXjQkuEn2BW',
     ];
 
     /**
-     * The <link> tag(s) for @dataTablesStyles: the DataTables CSS matching
-     * the configured theme. Empty when assets.enabled is false.
+     * The <link> tag(s) for @dataTablesStyles: the DataTables + Responsive
+     * CSS matching the configured theme. Empty when assets.enabled is false.
      */
     public static function styles(): string
     {
@@ -93,37 +115,186 @@ final class Assets
             return '';
         }
 
-        $file = 'dataTables.'.self::integration().'.min.css';
-
-        if (config('datatables.assets.source', 'local') === 'cdn') {
-            return '<link rel="stylesheet" href="'.self::cdnUrl('css/'.$file).'"'.self::integrityAttributes($file).'>'."\n";
-        }
-
-        return '<link rel="stylesheet" href="'.self::localUrl($file).'">'."\n";
+        return self::styleTag('dataTables.'.self::integration().'.min.css')
+            .self::styleTag('responsive.'.self::integration().'.min.css');
     }
 
     /**
-     * The <script> tags for @dataTablesScripts: DataTables core + the
-     * theme's integration (unless assets.enabled is false), the overrides
-     * object (auto-language merged in), then this package's own script.
+     * The <script> tags for @dataTablesScripts: DataTables core + the theme
+     * integration + Responsive (unless assets.enabled is false), the config
+     * object, then this package's own script. $env, passed by the directive,
+     * lets the page's @section('dataTable.*') overrides be read.
+     *
+     * @param  Factory|null  $env
      */
-    public static function scripts(array $overrides = []): string
+    public static function scripts(array $overrides = [], $env = null): string
     {
         $tags = '';
 
         if (config('datatables.assets.enabled', true)) {
             $tags .= self::vendorScriptTag('dataTables.min.js');
             $tags .= self::vendorScriptTag('dataTables.'.self::integration().'.min.js');
+            $tags .= self::vendorScriptTag('dataTables.responsive.min.js');
+            $tags .= self::vendorScriptTag('responsive.'.self::integration().'.min.js');
         }
 
-        $overrides = self::withLanguage($overrides);
+        $config = self::clientConfig($overrides, $env);
+        $json = json_encode($config, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
-        if ($overrides !== []) {
-            $json = json_encode($overrides, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-            $tags .= '<script>window.laravelDataTables = '.$json.';</script>'."\n";
-        }
+        // Merge INTO any inline window.laravelDataTables the page set first,
+        // letting that inline object win — a project can still override in JS.
+        // The IIFE guards against jQuery not being present yet.
+        $tags .= '<script>(function(w){var d='.$json.';'
+            .'w.laravelDataTables=w.jQuery?w.jQuery.extend(true,{},d,w.laravelDataTables||{}):d;'
+            .'})(window);</script>'."\n";
 
         return $tags.'<script src="'.self::packageJsUrl().'"></script>'."\n";
+    }
+
+    /**
+     * The window.laravelDataTables config: table defaults (config, then the
+     * page's @section overrides, then the directive argument), an auto
+     * language url, the "All" label, and the delete-confirm strings.
+     *
+     * @param  Factory|null  $env
+     */
+    private static function clientConfig(array $overrides, $env): array
+    {
+        $defaults = (array) config('datatables.defaults', []);
+        $defaults = array_merge($defaults, self::sectionOverrides($env));
+
+        if (isset($overrides['defaults']) && is_array($overrides['defaults'])) {
+            $defaults = array_merge($defaults, $overrides['defaults']);
+        }
+
+        if (! isset($defaults['language'])) {
+            $url = self::languageUrl();
+
+            if ($url !== null) {
+                $defaults['language'] = ['url' => $url];
+            }
+        }
+
+        $config = $overrides;
+        $config['defaults'] = $defaults;
+        $config['deleteConfirm'] = self::deleteConfirm();
+
+        if (! isset($config['allLabel'])) {
+            $config['allLabel'] = Translation::get('all');
+        }
+
+        return $config;
+    }
+
+    /**
+     * The page's @section('dataTable.*') overrides, coerced to real types.
+     * A sentinel default tells a set-but-empty section from an unset one, so
+     * only keys the page actually declared are returned.
+     *
+     * @param  Factory|null  $env
+     */
+    private static function sectionOverrides($env): array
+    {
+        if ($env === null) {
+            return [];
+        }
+
+        $unset = '__dt_unset__';
+        $out = [];
+
+        foreach (['responsive', 'stateSave', 'paging', 'searching'] as $key) {
+            $value = self::section($env, 'dataTable.'.$key, $unset);
+
+            if ($value !== $unset) {
+                $out[$key] = filter_var($value, FILTER_VALIDATE_BOOLEAN);
+            }
+        }
+
+        $length = self::section($env, 'dataTable.pageLength', $unset);
+
+        if ($length !== $unset && is_numeric($length)) {
+            $out['pageLength'] = (int) $length;
+        }
+
+        $column = self::section($env, 'dataTable.order.column', $unset);
+        $direction = self::section($env, 'dataTable.order.type', $unset);
+
+        if ($column !== $unset || $direction !== $unset) {
+            $out['order'] = [[
+                $column !== $unset && is_numeric($column) ? (int) $column : 0,
+                strtolower((string) $direction) === 'desc' ? 'desc' : 'asc',
+            ]];
+        }
+
+        return $out;
+    }
+
+    /**
+     * One @section value, trimmed (block sections carry whitespace), or the
+     * sentinel when the section was never declared.
+     *
+     * @param  Factory  $env
+     */
+    private static function section($env, string $name, string $unset): string
+    {
+        $value = $env->yieldContent($name, $unset);
+
+        // Return the sentinel verbatim when the section was never declared —
+        // do NOT trim it, or trim() (which also strips null bytes) could turn
+        // the sentinel into something that reads as a real value, forcing the
+        // key off. A declared section is trimmed (block sections carry space).
+        if ($value === $unset) {
+            return $unset;
+        }
+
+        return is_string($value) ? trim($value) : $unset;
+    }
+
+    /**
+     * Strings, theme button classes and the CSRF token for the .DeleteRowButton
+     * confirm flow. Strings come from this package's translations, which the
+     * app can override with its own datatables.php lang file.
+     */
+    private static function deleteConfirm(): array
+    {
+        return [
+            'title' => Translation::get('delete_alert.confirmation.title'),
+            'text' => Translation::get('delete_alert.confirmation.text'),
+            'confirmText' => Translation::get('delete_alert.confirmation.button'),
+            'cancelText' => Translation::get('cancel'),
+            'successTitle' => Translation::get('delete_alert.success.title'),
+            'errorTitle' => Translation::get('delete_alert.error.title'),
+            'errorText' => Translation::get('delete_alert.error.text'),
+            'closeText' => Translation::get('close'),
+            'confirmClass' => self::buttonClass('danger'),
+            'cancelClass' => self::buttonClass('secondary'),
+            'csrf' => csrf_token(),
+        ];
+    }
+
+    /**
+     * A theme-appropriate button class. Bootstrap 3 has neither btn-secondary
+     * nor the spacing utilities, so it gets its own pairing.
+     */
+    private static function buttonClass(string $variant): string
+    {
+        if (Theme::current() === Theme::BOOTSTRAP3) {
+            return $variant === 'danger' ? 'btn btn-danger' : 'btn btn-default';
+        }
+
+        return $variant === 'danger' ? 'btn btn-danger m-1' : 'btn btn-secondary m-1';
+    }
+
+    /**
+     * One vendor stylesheet <link> from the configured source.
+     */
+    private static function styleTag(string $file): string
+    {
+        if (config('datatables.assets.source', 'local') === 'cdn') {
+            return '<link rel="stylesheet" href="'.self::cdnUrl($file).'"'.self::integrityAttributes($file).'>'."\n";
+        }
+
+        return '<link rel="stylesheet" href="'.self::localUrl($file).'">'."\n";
     }
 
     /**
@@ -132,7 +303,7 @@ final class Assets
     private static function vendorScriptTag(string $file): string
     {
         if (config('datatables.assets.source', 'local') === 'cdn') {
-            return '<script src="'.self::cdnUrl('js/'.$file).'"'.self::integrityAttributes($file).'></script>'."\n";
+            return '<script src="'.self::cdnUrl($file).'"'.self::integrityAttributes($file).'></script>'."\n";
         }
 
         return '<script src="'.self::localUrl($file).'"></script>'."\n";
@@ -179,29 +350,6 @@ final class Assets
         return self::$integrations[$theme] ?? self::$integrations[Theme::BOOTSTRAP5];
     }
 
-    /**
-     * Fill defaults.language.url from the assets.language setting when the
-     * caller has not set one. 'auto' follows the app locale; a string is
-     * used as the URL; false/null does nothing.
-     */
-    private static function withLanguage(array $overrides): array
-    {
-        if (isset($overrides['defaults']['language'])) {
-            return $overrides;
-        }
-
-        $url = self::languageUrl();
-
-        if ($url === null) {
-            return $overrides;
-        }
-
-        $overrides['defaults'] = $overrides['defaults'] ?? [];
-        $overrides['defaults']['language'] = ['url' => $url];
-
-        return $overrides;
-    }
-
     private static function languageUrl(): ?string
     {
         $language = config('datatables.assets.language', 'auto');
@@ -210,14 +358,17 @@ final class Assets
             return null;
         }
 
-        if (is_string($language) && $language !== 'auto') {
+        // A URL (it has a slash or a dot) is used verbatim; anything else is
+        // a locale code, and 'auto' means the current app locale.
+        if (is_string($language) && $language !== 'auto'
+            && (strpos($language, '/') !== false || strpos($language, '.') !== false)) {
             return $language;
         }
 
-        $locale = app()->getLocale();
+        $locale = $language === 'auto' ? app()->getLocale() : $language;
 
         if (! isset(self::$languages[$locale])) {
-            return null;
+            return null;   // English, or any locale with no bundled file
         }
 
         if (config('datatables.assets.source', 'local') === 'cdn') {
@@ -263,9 +414,24 @@ final class Assets
         return route('datatables.vendor', ['file' => $file]).'?v='.$version;
     }
 
-    private static function cdnUrl(string $path): string
+    /**
+     * The cdn.datatables.net URL for a whitelisted file. Responsive lives
+     * under responsive/{RESPONSIVE_VERSION}/; core under {VERSION}/.
+     */
+    private static function cdnUrl(string $file): string
     {
-        return 'https://cdn.datatables.net/'.self::VERSION.'/'.$path;
+        $relative = isset(self::$vendorFiles[$file]) ? self::$vendorFiles[$file][0] : $file;
+
+        if (self::isResponsive($file)) {
+            return 'https://cdn.datatables.net/responsive/'.self::RESPONSIVE_VERSION.'/'.$relative;
+        }
+
+        return 'https://cdn.datatables.net/'.self::VERSION.'/'.$relative;
+    }
+
+    private static function isResponsive(string $file): bool
+    {
+        return $file === 'dataTables.responsive.min.js' || strpos($file, 'responsive.') === 0;
     }
 
     private static function integrityAttributes(string $file): string

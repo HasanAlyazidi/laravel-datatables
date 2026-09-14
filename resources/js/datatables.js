@@ -67,6 +67,135 @@
     return meta.row + meta.settings._iDisplayStart + 1;
   }
 
+  var deleteConfig = settings.deleteConfirm || {};
+
+  // A confirm dialog across SweetAlert2 (window.Swal), SweetAlert 1
+  // (window.swal), or the browser's own confirm() when neither is present.
+  // onConfirm runs only when the user accepts. SweetAlert2 also defines
+  // window.swal, so Swal is checked first.
+  function confirmDelete(onConfirm) {
+    if (window.Swal && window.Swal.fire) {
+      window.Swal.fire({
+        title: deleteConfig.title,
+        text: deleteConfig.text,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: deleteConfig.confirmText,
+        cancelButtonText: deleteConfig.cancelText,
+        buttonsStyling: false,
+        customClass: { confirmButton: deleteConfig.confirmClass, cancelButton: deleteConfig.cancelClass }
+      }).then(function (result) {
+        if (result && result.isConfirmed) {
+          onConfirm();
+        }
+      });
+
+      return;
+    }
+
+    if (window.swal) {
+      window.swal({
+        title: deleteConfig.title,
+        text: deleteConfig.text,
+        type: 'warning',
+        showCancelButton: true,
+        confirmButtonText: deleteConfig.confirmText,
+        cancelButtonText: deleteConfig.cancelText,
+        confirmButtonClass: deleteConfig.confirmClass,
+        closeOnConfirm: true
+      }, function (confirmed) {
+        if (confirmed) {
+          onConfirm();
+        }
+      });
+
+      return;
+    }
+
+    if (window.confirm(deleteConfig.text || deleteConfig.title || 'Are you sure?')) {
+      onConfirm();
+    }
+  }
+
+  // A result alert through whichever library is present, else alert().
+  function notify(type, title, text) {
+    if (window.Swal && window.Swal.fire) {
+      window.Swal.fire({
+        title: title,
+        text: text,
+        icon: type,
+        buttonsStyling: false,
+        confirmButtonText: deleteConfig.closeText,
+        customClass: { confirmButton: deleteConfig.cancelClass }
+      });
+
+      return;
+    }
+
+    if (window.swal) {
+      window.swal({ title: title, text: text, type: type, confirmButtonText: deleteConfig.closeText });
+
+      return;
+    }
+
+    if (window.alert) {
+      window.alert(title + (text ? ': ' + text : ''));
+    }
+  }
+
+  // Drop the deleted row from its table. Server-side tables reload (so the
+  // counts and paging stay right, stepping back a page if the last row on
+  // the last page went); client-side tables remove the row in place, and
+  // unwrap the Responsive child row when the button sits inside one.
+  function refreshAfterDelete($button) {
+    var $table = $button.closest('table');
+
+    if (!$.fn.dataTable.isDataTable($table)) {
+      return;
+    }
+
+    var table = $table.DataTable();
+
+    if (table.page.info().serverSide) {
+      table.ajax.reload(function () {
+        var info = table.page.info();
+
+        if (info.recordsDisplay > 0 && info.start >= info.recordsDisplay) {
+          table.page('last').draw('page');
+        }
+      }, false);
+
+      return;
+    }
+
+    var $row = $button.closest('tr');
+    var $previous = $row.prev();
+    var $target = $row.hasClass('child') && $previous.hasClass('parent') ? $previous : $row;
+
+    table.row($target).remove().draw(false);
+  }
+
+  function sendDelete(url, $button) {
+    $.ajax({
+      type: 'post',
+      url: url,
+      dataType: 'json',
+      headers: deleteConfig.csrf ? { 'X-CSRF-TOKEN': deleteConfig.csrf } : {},
+      data: { _method: 'DELETE' }
+    }).done(function (response) {
+      if (response && response.status === true) {
+        notify('success', deleteConfig.successTitle, response.message || '');
+        refreshAfterDelete($button);
+
+        return;
+      }
+
+      notify('error', deleteConfig.errorTitle, (response && response.message) || deleteConfig.errorText);
+    }).fail(function () {
+      notify('error', deleteConfig.errorTitle, deleteConfig.errorText);
+    });
+  }
+
   $(function () {
     // Client-side tables: all rows are already in the HTML. Skipped when the
     // app keeps its own initialiser (clientSide: false), and any table that
@@ -279,6 +408,27 @@
       if (!anyVisible) {
         $(this).hide();
       }
+    });
+
+    // Delete-row buttons: confirm, send the DELETE, then drop the row (or
+    // reload a server-side table). Bound on the document so buttons added by
+    // a later draw are covered too. Markup contract: a clickable element with
+    // class "DeleteRowButton" and data-url, and a JSON { status, message }
+    // response from that URL.
+    $(document).on('click', '.DeleteRowButton', function (e) {
+      e.preventDefault();
+
+      var url = $(this).data('url');
+
+      if (!url) {
+        return;
+      }
+
+      var $button = $(this);
+
+      confirmDelete(function () {
+        sendDelete(url, $button);
+      });
     });
   });
 })(window, window.jQuery);

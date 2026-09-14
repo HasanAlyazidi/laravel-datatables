@@ -9,6 +9,8 @@ Server-side [jQuery DataTables](https://datatables.net) for Laravel, the easy wa
 
 Your table loads fast even with 100,000 rows, because the server sends only one page at a time.
 Search, sorting, paging, filters, and Excel / CSV / PDF downloads all work out of the box.
+Tables collapse gracefully on small screens, and a one-attribute delete-row flow, a bundled
+Arabic/Latin PDF font, and sensible defaults all come with no configuration.
 Arabic and other RTL languages are fully supported.
 
 ```php
@@ -318,7 +320,7 @@ Every table gets an Export button automatically. CSV is always available; Excel 
 - Downloads contain **all** matching rows — not just the visible page — with the current search, filters, and sorting.
 - Excel cells are written as text, so phone numbers keep their `+` and nothing runs as a formula.
 - CSV is protected against formula injection (the OWASP rule) and streams, so huge tables are fine.
-- PDF supports Arabic shaping, custom fonts, your logo, and portrait/landscape. Very large PDF exports are heavy — thousands of rows are fine, tens of thousands belong in CSV/Excel.
+- PDF ships with **IBM Plex Sans Arabic** (bundled) so Arabic (shaped, with tashkeel) and Latin render in one font — point `exports.pdf.fonts` at your own font to change it. It supports your logo and portrait/landscape. Very large PDF exports are heavy — thousands of rows are fine, tens of thousands belong in CSV/Excel.
 
 Limit one table to certain formats:
 
@@ -337,6 +339,16 @@ Put the button somewhere else on the page:
 
 Turn everything off globally with `'exports' => ['enabled' => false]` in the config.
 
+## Delete buttons
+
+Give any delete button `class="DeleteRowButton"` and a `data-url`, and the package wires the rest — a confirm dialog, the `DELETE` request, and dropping the row (client tables) or reloading (server tables):
+
+```blade
+<button class="DeleteRowButton" data-url="{{ route('users.destroy', $user) }}">Delete</button>
+```
+
+The endpoint replies with JSON `{ "status": true }`, or `{ "status": false, "message": "..." }` on failure. Confirm/success/error text comes from the package's translations, the button colours match your theme, and the CSRF token is included. The dialog uses **SweetAlert2** if it is on the page, **SweetAlert&nbsp;1** if that is instead, or the browser's own `confirm()` otherwise.
+
 ## Settings
 
 The defaults work without any setup. To change them:
@@ -351,51 +363,60 @@ Then edit `config/datatables.php`:
 |---|---|---|
 | `theme` | `bootstrap5`, `bootstrap4`, or `bootstrap3` markup | `bootstrap5` |
 | `namespace` | Where short table names are looked up | `App\DataTables` |
-| `assets.*` | How the front-end files are served (see below) | local |
+| `defaults` | Table defaults — see [Table defaults](#table-defaults) | responsive & stateSave on |
+| `assets.*` | How the front-end files are served (see below) | local, enabled |
 | `exports.enabled` | Master switch for all exports | `true` |
 | `exports.exporters` | Which formats exist at all | all four |
 | `exports.orientation`, `exports.pageSize` | Paper for PDF and Excel printing | portrait, A4 |
 | `exports.pdf.*` | PDF logo, colors, margins, fonts, memory | sensible defaults |
 
+A published config only needs the keys you change — it deep-merges over the package defaults, so a small `exports.pdf` tweak won't wipe the exporter list.
+
 Per-table versions of most settings exist too — `$exporters`, `$pageOrientation`, `$pageSize`, `$maxLength`, `$allowAll`, `$exportChunk`, and the `pdf*View()` / `logo()` methods.
 
-## JavaScript defaults
+## Table defaults
 
-Change the defaults for every table on the site — set the object **before** `@dataTablesScripts`:
+Every table starts from `config('datatables.defaults')`:
+
+| Default | Value |
+|---|---|
+| `stateSave` | `true` |
+| `responsive` | `true` (uses the bundled Responsive extension) |
+| `pageLength` | `25` |
+| `lengthMenu` | `[1, 5, 10, 25, 50, 75, 100, All]` |
+| `paging`, `searching` | `true` |
+| `order` | first column, ascending |
+
+Override them at three levels — most specific wins:
+
+- **Per project** — edit `config('datatables.defaults')`. To turn one off use `false`, not `null`.
+- **Per page** — `@section('dataTable.<key>', <value>)` (keys: `responsive`, `stateSave`, `pageLength`, `paging`, `searching`, `order.column`, `order.type`):
+
+  ```blade
+  @section('dataTable.pageLength', 50)
+  @section('dataTable.order.type', 'desc')
+  ```
+
+- **Per table** — a `<x-datatable>` attribute (server tables): `<x-datatable table="UsersDataTable" :page-length="50" :searching="false" />`
+
+Need an option DataTables understands that isn't listed? Set it in JS before the script loads — the package merges its config into yours, and **yours wins**:
 
 ```blade
 <script>
-    window.laravelDataTables = {
-        defaults: {
-            stateSave: true,
-            pageLength: 50,
-            lengthMenu: [[10, 25, 50, -1], [10, 25, 50, 'All']]
-        },
-        allLabel: 'All'
-    };
+    window.laravelDataTables = { defaults: { deferRender: true } };
 </script>
 @dataTablesScripts
 ```
 
-Anything DataTables understands can go in `defaults`. Or pass the same array inline:
-
-```blade
-@dataTablesScripts(['defaults' => ['stateSave' => true]])
-```
-
-Change one table only, on its tag:
-
-```blade
-<x-datatable table="UsersDataTable" :page-length="50" :searching="false" />
-```
+Or pass it to the directive: `@dataTablesScripts(['defaults' => ['deferRender' => true]])`.
 
 ## Front-end files
 
-Where the DataTables library itself comes from — `assets.source` in the config:
+By default (`assets.enabled => true`) the package serves the DataTables library, its Bootstrap integration, and the **Responsive extension** for you — `@dataTablesStyles` in the `<head>`, `@dataTablesScripts` before `</body>`. Where those files come from is `assets.source`:
 
 - **`local`** (default): the copy bundled inside this package, served through two small routes. Works offline, always the version this package was tested with.
 - **`cdn`**: load from cdn.datatables.net instead, version-pinned with integrity hashes.
-- **`enabled => false`**: you load DataTables yourself in the layout (any version 1.10.8+). The directives then print only the package's own script.
+- **`enabled => false`**: you load DataTables (and Responsive, if you use it) yourself in the layout (any version 1.10.8+). The directives then print only the package's own script.
 
 Prefer real static files served by your web server? Publish them once — the directives switch to the published copies automatically:
 
@@ -464,4 +485,4 @@ composer test
 
 ## Changelog / Contributing / License
 
-See [CHANGELOG.md](CHANGELOG.md) and [CONTRIBUTING.md](CONTRIBUTING.md). Open-sourced under the [MIT license](LICENSE.md).
+See [CHANGELOG.md](CHANGELOG.md) and [CONTRIBUTING.md](CONTRIBUTING.md). Open-sourced under the [MIT license](LICENSE.md). Upgrading from 1.x? The breaking changes are at the top of [CHANGELOG.md](CHANGELOG.md). The bundled IBM Plex Sans Arabic font is under the SIL Open Font License (`resources/fonts/OFL.txt`).

@@ -145,11 +145,21 @@ class PdfExporter implements Exporter
     private function fontConfig(): array
     {
         $fonts = (array) ($this->settings()['fonts'] ?? []);
+
+        // One directory is read: the project's when set, otherwise this
+        // package's bundled fonts (Noto). The mPDF wrapper accepts a single
+        // custom_font_dir, so a family whose file is not in that directory is
+        // skipped rather than handed to mPDF, which would fail to load it.
+        $configured = $fonts['directory'] ?? null;
+        $dir = is_string($configured) && $configured !== ''
+            ? $this->fontDir($configured)
+            : $this->packageFontDir();
+
         $families = [];
 
         foreach ((array) ($fonts['families'] ?? []) as $name => $family) {
-            if (empty($family['regular'])) {
-                continue;   // a family without a regular face cannot be used
+            if (empty($family['regular']) || ! is_file($dir.$family['regular'])) {
+                continue;   // no regular face, or its file is not in this directory
             }
 
             $entry = ['R' => $family['regular']];
@@ -172,11 +182,13 @@ class PdfExporter implements Exporter
         }
 
         $config = [
-            'custom_font_dir' => $this->fontDir($fonts['directory'] ?? 'public/fonts'),
+            'custom_font_dir' => $dir,
             'custom_font_data' => $families,
         ];
 
-        if (! empty($fonts['default'])) {
+        // Only set the document default when it was actually registered above,
+        // so a missing font file never leaves mPDF pointing at a dead family.
+        if (! empty($fonts['default']) && isset($families[$fonts['default']])) {
             $config['default_font'] = $fonts['default'];
         }
 
@@ -217,6 +229,15 @@ class PdfExporter implements Exporter
     private function fontDir(string $dir): string
     {
         return $this->absolute($dir, base_path($dir)).DIRECTORY_SEPARATOR;
+    }
+
+    /**
+     * This package's bundled fonts directory (Noto Sans Arabic), used when
+     * the project has not pointed "directory" at fonts of its own.
+     */
+    private function packageFontDir(): string
+    {
+        return __DIR__.'/../../resources/fonts/';
     }
 
     /**

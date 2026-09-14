@@ -34,11 +34,16 @@ class AssetsTest extends TestCase
     public function test_auto_language_follows_the_app_locale()
     {
         app()->setLocale('ar');
-        $this->assertStringContainsString('lang-ar.json', Assets::scripts());
-        $this->assertStringContainsString('laravelDataTables', Assets::scripts());
+        $arabic = Assets::scripts();
+        $this->assertStringContainsString('lang-ar.json', $arabic);
+        $this->assertStringContainsString('laravelDataTables', $arabic);
 
+        // English needs no file: the config object is still emitted (it carries
+        // the table defaults and delete strings), just without a language url.
         app()->setLocale('en');
-        $this->assertStringNotContainsString('laravelDataTables', Assets::scripts());
+        $english = Assets::scripts();
+        $this->assertStringContainsString('laravelDataTables', $english);
+        $this->assertStringNotContainsString('lang-', $english);
     }
 
     public function test_explicit_overrides_win_over_the_auto_language()
@@ -122,8 +127,55 @@ class AssetsTest extends TestCase
 
     public function test_the_scripts_directive_compiles_its_empty_form_safely()
     {
-        $this->assertStringContainsString('Assets::scripts([])', Blade::compileString('@dataTablesScripts'));
-        $this->assertStringContainsString("Assets::scripts(['defaults' => []])", Blade::compileString("@dataTablesScripts(['defaults' => []])"));
+        // $__env is passed so the page's @section('dataTable.*') can be read.
+        $this->assertStringContainsString('Assets::scripts([], $__env)', Blade::compileString('@dataTablesScripts'));
+        $this->assertStringContainsString("Assets::scripts(['defaults' => []], \$__env)", Blade::compileString("@dataTablesScripts(['defaults' => []])"));
         $this->assertStringContainsString('Assets::styles()', Blade::compileString('@dataTablesStyles'));
+    }
+
+    public function test_responsive_extension_is_bundled_and_emitted()
+    {
+        $styles = Assets::styles();
+        $scripts = Assets::scripts();
+
+        $this->assertStringContainsString('responsive.bootstrap5.min.css', $styles);
+        $this->assertStringContainsString('dataTables.responsive.min.js', $scripts);
+        $this->assertStringContainsString('responsive.bootstrap5.min.js', $scripts);
+
+        $this->get(route('datatables.vendor', ['file' => 'dataTables.responsive.min.js']))->assertStatus(200);
+        $this->get(route('datatables.vendor', ['file' => 'responsive.bootstrap.min.css']))->assertStatus(200);
+    }
+
+    public function test_cdn_responsive_uses_its_own_version_segment()
+    {
+        config(['datatables.assets.source' => 'cdn']);
+
+        $this->assertStringContainsString(
+            'cdn.datatables.net/responsive/'.Assets::RESPONSIVE_VERSION.'/js/dataTables.responsive.min.js',
+            Assets::scripts()
+        );
+    }
+
+    public function test_the_config_carries_the_defaults_and_delete_strings()
+    {
+        $scripts = Assets::scripts();
+
+        $this->assertStringContainsString('"lengthMenu":[1,5,10,25,50,75,100,-1]', $scripts);
+        $this->assertStringContainsString('"responsive":true', $scripts);
+        $this->assertStringContainsString('"deleteConfirm"', $scripts);
+        $this->assertStringContainsString('Yes, Delete.', $scripts);
+    }
+
+    public function test_a_bare_locale_code_selects_that_languages_file()
+    {
+        config(['datatables.assets.language' => 'ar']);
+        app()->setLocale('en');   // the explicit code wins over the app locale
+
+        $this->assertStringContainsString('lang-ar.json', Assets::scripts());
+    }
+
+    public function test_the_config_is_merge_emitted_so_an_inline_object_wins()
+    {
+        $this->assertStringContainsString('w.jQuery.extend(true,{},d,w.laravelDataTables||{})', Assets::scripts());
     }
 }

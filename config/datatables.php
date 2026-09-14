@@ -55,6 +55,29 @@ return [
         'language' => 'auto',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Table defaults
+    |--------------------------------------------------------------------------
+    | The base options applied to every table, client- and server-side. A
+    | page overrides them with @section('dataTable.<key>', <value>) and a
+    | server table's <x-datatable> tag attributes override them again.
+    | To turn one OFF, set it to false — not null (null means "no override").
+    |
+    | responsive needs the DataTables Responsive extension, which this
+    | package bundles and loads for you when assets.enabled is true.
+    */
+
+    'defaults' => [
+        'stateSave' => true,
+        'responsive' => true,
+        'pageLength' => 25,
+        'paging' => true,
+        'searching' => true,
+        'order' => [[0, 'asc']],
+        'lengthMenu' => [1, 5, 10, 25, 50, 75, 100, -1],
+    ],
+
     'exports' => [
 
         /*
@@ -160,10 +183,12 @@ return [
             // The band repeated at the top of every page.
             'header' => [
                 'logo' => [
-                    // Relative to public/, or an absolute path. null hides
-                    // the logo; a missing file degrades to no logo.
-                    // A table can override this — see DataTable::logo().
-                    'path' => null,
+                    // Relative to public/, or an absolute path. A missing
+                    // file degrades to no logo, so this default just works:
+                    // drop your logo at public/img/logo.png. Set null to hide
+                    // it, or a different path. A table can override this too —
+                    // see DataTable::logo().
+                    'path' => 'img/logo.png',
 
                     // In pixels. The band has about 24mm of room, so ~60 is
                     // the practical ceiling before the title starts to crowd.
@@ -189,34 +214,42 @@ return [
             /*
             | Custom PDF fonts, described engine-neutrally.
             |
-            | directory : project-root-relative or absolute (read from disk).
-            | default   : document-wide family; null keeps mPDF's own default
-            |             (DejaVu, which already covers Arabic).
+            | directory : where the font files live. null = this package's
+            |             bundled fonts (Noto Sans Arabic, below). Set a path
+            |             (project-root-relative or absolute) to use your own
+            |             fonts instead — then also set "default" and list your
+            |             own "families", since only that one directory is read.
+            | default   : document-wide family (must be one listed in families,
+            |             or it is ignored and mPDF's own default is used).
             | families  : per family only "regular" is required — bold and
-            |             italic faces are synthesised when missing.
+            |             italic faces are synthesised when missing. A family
+            |             whose file is not in "directory" is skipped.
             | shaping   : join Arabic/complex scripts. kashida: 0-100.
             |
-            | Example — a custom Arabic family in public/fonts:
+            | The default is IBM Plex Sans Arabic (SIL OFL, bundled): a clean,
+            | Arial-like face covering both Arabic (shaped) and Latin, so mixed
+            | Arabic/English tables render in one font. Example of your own
+            | Arabic family instead:
             |
             | 'directory' => 'public/fonts',
             | 'default' => 'majalla',
-            | 'families' => [
-            |     'majalla' => [
-            |         'regular' => 'majalla.ttf',
-            |         'bold' => 'majallab.ttf',
-            |         'italic' => null,
-            |         'boldItalic' => null,
-            |         'shaping' => true,
-            |         'kashida' => 75,
-            |     ],
-            | ],
+            | 'families' => ['majalla' => [
+            |     'regular' => 'majalla.ttf', 'bold' => 'majallab.ttf',
+            |     'shaping' => true, 'kashida' => 75,
+            | ]],
             */
             'fonts' => [
-                'directory' => 'public/fonts',
+                'directory' => null,
 
-                'default' => null,
+                'default' => 'plexarabic',
 
-                'families' => [],
+                'families' => [
+                    'plexarabic' => [
+                        'regular' => 'IBMPlexSansArabic-Regular.ttf',
+                        'bold' => 'IBMPlexSansArabic-Bold.ttf',
+                        'shaping' => true,
+                    ],
+                ],
             ],
         ],
     ],

@@ -1,5 +1,10 @@
 * text=auto eol=lf
 
+# Bundled fonts are binary — never apply EOL normalization, which would
+# corrupt them.
+*.ttf binary
+*.otf binary
+
 /.github export-ignore
 /tests export-ignore
 /.gitattributes export-ignore

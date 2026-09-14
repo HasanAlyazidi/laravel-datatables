@@ -164,4 +164,42 @@ class RenderingTest extends DatabaseTestCase
 
         Renderer::tableClass('Missing\\Nope');
     }
+
+    public function test_section_overrides_apply_and_unset_keys_keep_the_config_defaults()
+    {
+        config(['datatables.defaults' => [
+            'responsive' => true, 'paging' => true, 'searching' => true,
+            'stateSave' => true, 'pageLength' => 25, 'order' => [[0, 'asc']],
+        ]]);
+
+        // Regression: a page with NO @section must KEEP the config defaults on.
+        // A sentinel-vs-trim() bug once forced responsive/paging/searching/
+        // stateSave off on every table.
+        $plain = $this->scriptConfigFrom($this->get('page/sections-defaults-page')->getContent());
+
+        $this->assertTrue($plain['defaults']['responsive']);
+        $this->assertTrue($plain['defaults']['paging']);
+        $this->assertTrue($plain['defaults']['searching']);
+        $this->assertTrue($plain['defaults']['stateSave']);
+        $this->assertSame(25, $plain['defaults']['pageLength']);
+
+        // @section overrides ARE read and coerced to real types.
+        $over = $this->scriptConfigFrom($this->get('page/sections-override-page')->getContent());
+
+        $this->assertFalse($over['defaults']['responsive']);
+        $this->assertSame(50, $over['defaults']['pageLength']);
+        $this->assertSame([[2, 'desc']], $over['defaults']['order']);
+    }
+
+    /**
+     * The @dataTablesScripts config, decoded out of the emitted script tag.
+     */
+    private function scriptConfigFrom(string $html): array
+    {
+        $matched = preg_match('/var d=(\{.*\});w\.laravelDataTables/s', $html, $m);
+
+        $this->assertSame(1, $matched, 'No @dataTablesScripts config found.');
+
+        return json_decode($m[1], true);
+    }
 }
